@@ -43,5 +43,21 @@ ggMarginal(g, type = "histogram", fill="transparent")
 ggMarginal(g, type = "boxplot", fill="transparent")
 ggMarginal(g, type = "density", fill="transparent")
 ```
+```{r}
+# load package and data
+library(ggplot2)
+data(mpg, package="ggplot2")
+# mpg <- read.csv("http://goo.gl/uEeRGu")
+
+# Scatterplot
+theme_set(theme_bw())  # pre-set the bw theme.
+g <- ggplot(mpg, aes(cty, hwy))
+g + geom_count(col="tomato3", show.legend=F) +
+  labs(subtitle="mpg: city vs highway mileage", 
+       y="hwy", 
+       x="cty", 
+       title="Counts Plot")
+```
+
 
 Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
