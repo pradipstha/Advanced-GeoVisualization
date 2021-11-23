@@ -1,4 +1,1 @@
-# GeoViz
-
-This repo is used to demonstrate the use of GitHub and Rstudio for version control.
-The file project_1.Rproj contains R codes to load default dataset and plot it. 
+This repo is contains lab files used in the couse EAS 501 Advanced GeoVisualization. 
