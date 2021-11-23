@@ -1,0 +1,228 @@
+---
+title: "Lab 4"
+author: "Pradip Shrestha"
+date: "11/20/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(jsonlite)
+library(rtweet)
+library(tidytext)
+library(textdata)
+library(tidyverse)
+library(wordcloud)
+library(reshape2)
+library(ggeasy)
+library(sentimentr)
+```
+
+
+```{r}
+# Importing data 
+tweets <- fromJSON("C:/Users/mepra/Desktop/UMICH/501/Lab 4/TwitterData.json")
+tweets <- lat_lng(tweets)
+dim(tweets)
+```
+
+#### Filter the tweets how you deem appropriate (hint 1: lang column, hint 2: individual users might be a good way to organize your analysis). Choose a lexicon library to analyze the sentiment of the dataset (e.g. positive, negative, joyous). Present your results using appropriate charts and explain the findings (1-2 paragraphs).  
+
+<font size = "3"> The dataset includes 12,4556 tweets spanning an hour time period between 15:58:23 through 16:58:14 on 2020-04-02. First, tweets were filter explicitly for English language and selected based on status, time of creation, place of origin, and country. </font>
+
+```{r}
+#Filter tweet with English language only
+tweet_en<- tweets %>% 
+  filter(lang == "en") %>% 
+  select(status_id, created_at, place_full_name, country, text)
+head(tweet_en$text)
+```
+
+<font size = "3"> Using ```head``` command, the first few row text were observed. It is obvious that there are a lot of special characters and unnecessary data in the text section of the data. As a result, it becomes critical to pre-process this data before proceeding with our analysis. Various combination of codes is applied to the raw text to pre-process the data and remove tabs, blank spaces, special characters, symbols etc.</font>
+
+```{r}
+# Text cleaning
+tweet_en$text <- as.character(tweet_en$text) # convert to character
+tweet_en$text <- tolower(tweet_en$text) # convert to lower case
+tweet_en$text <- gsub("\\$", "", tweet_en$text) 
+tweet_en$text <- gsub("@\\w+", "", tweet_en$text) #remove symbol
+tweet_en$text <- gsub("[[:punct:]]","", tweet_en$text) # remove punctuation characters
+tweet_en$text <- gsub("http\\w+", "", tweet_en$text) # remove hyperlinks http
+tweet_en$text <- gsub("[ |\t]{2,}", "", tweet_en$text) # remove tabs
+tweet_en$text <- gsub("^ ", "", tweet_en$text) # remove blank spaces at the beginning
+tweet_en$text <- gsub(" $", "", tweet_en$text) # remove blank spaces at the end
+tweet_en$text <- gsub("rt","", tweet_en$text) # remove rt
+tweet_en$text <- gsub("href", "", tweet_en$text) # remove web link
+tweet_en$text <- gsub("([0-9])","", tweet_en$text) # remove numbers from text
+```
+
+<font size = "3"> ```unrest_toaken``` is used from tidy text package to transform it into a dataset of words. The output is assigned as word to tell ```unnest_tokens()``` to arrange the column as word where each row has a single word in the word column and a unique ID. Stop words serve a function in verbal communication, but don’t tell us much on their own, and clutter the dataset of useful words while making it harder to manage the volume of words to be analyzed. As such, ```anti_join()``` command is applied to keep only rows that have words not appearing in the stop_words dataset. For sentiment scoring, ```nrc``` lexicon was applied to the clean text which will categorize each word to one of the 10 sentiment categories mainly, anger, anticipation, disgust, fear, joy, negative, positive, sadness, surprise, trust. The words were aggregated to categorize the positive sentiments and all that's negative. A score of +1 was given to each positive word, -1 to each negative words. Hence, the sentiment score of each tweet was consolidated and if the score is above 0, that tweet will be classified as positive, below 0 as negative. If the score was exactly 0, it will recorded as neutral. Finally, ```drop_na``` argument was passed to remove all columns with NA values. Accordingly, histogram and bar plot was developed using ```ggplot``` based on sentiment score. </font>   
+
+```{r}
+# Sentiment score for each tweets  
+tweet_analysis <- data_frame(id = tweet_en$status_id, text = tweet_en$text) %>% 
+    unnest_tokens(word, text) %>%
+    anti_join(stop_words, by = "word") %>%
+    inner_join(get_sentiments("nrc")) %>%
+    mutate(score = ifelse(sentiment=='positive',1, 
+                          ifelse(sentiment=='joy',1,
+                                 ifelse(sentiment=='trust',1,
+                                        ifelse(sentiment=='surprise',0,
+                                               ifelse(sentiment=='anticipation',0,-1)))))) %>%
+    group_by(id) %>%
+    summarise(total_score = sum(score)) %>%
+  mutate(sentiment = ifelse(total_score>0,'Positive',ifelse(total_score<0,'Negative','Neutral'))) %>% 
+  drop_na()
+
+# Count of sentiment type
+tweet_analysis %>% 
+   count(sentiment) %>% 
+   mutate(percent = n / sum(n) * 100)
+
+# Histogram of sentiment analysis
+plot1<- tweet_analysis %>%
+  ggplot(aes(x=total_score)) + 
+  geom_histogram(binwidth = 1.5, fill = "lightblue") + 
+  labs(title = 'Distribution of Sentiment Scores',
+       y = "Frequency", x = "Total score", caption = "Lab 4 data") +
+  theme_classic() +
+  ggeasy::easy_center_title()
+plot1 + geom_vline(aes(xintercept=mean(total_score)), color="red", linetype = 2)
+
+# Bar plot of the sentiment analysis
+neutral <- length(which(tweet_analysis$total_score == 0))
+positive <- length(which(tweet_analysis$total_score > 0))
+negative <- length(which(tweet_analysis$total_score < 0))
+Sentiment <- c("Positive","Neutral","Negative")
+Count <- c(positive,neutral,negative)
+output <- data.frame(Sentiment,Count)
+output$Sentiment<-factor(output$Sentiment,levels=Sentiment)
+plot2<- ggplot(output, aes(x=Sentiment,y=Count))+
+  geom_bar(stat = "identity", aes(fill = Sentiment)) +
+  labs(title = 'Barplot based on Sentiment',
+       x = '', y = 'Frequency', caption = "Lab 4 data") + 
+  theme_classic()
+plot2
+
+# Top and bottom values
+tweet_analysis %>%  
+  slice_max(tweet_analysis$total_score, n = 3)
+tweet_analysis %>%  
+  slice_min(tweet_analysis$total_score, n = 3) 
+```
+
+<font size = "3"> From histogram of sentiment scores, the curve was recorded to be normally distributed as majority of the score occurred around the mean. While the mean of score was zero indicating that score of negative words was equal to that of positive words in the dataset, however, the marginal difference was recorded in the range. It is also clear from the barplot of sentiment type that majority of tweet words indicated either negative or positive expressions while very few had neutral value. Out of the 26,411 words, 50 percent were recorded as positive, 41 percent were negative and 9 percent were recorded as neutral. This bar plot helps us to identify overall opinion of the people for a given time period. Finally, highest and lowest total score values were recorded as 24, 24 and 23 (positive), and -36, -32 and -28 (negative) respectively. </font>
+
+
+#### Determine the amount of ambiguous tweets in the analysis. Reflect on and provide examples of issues related to subjectivity and Tone, Context and Polarity, Irony and Sarcasm, Comparisons, and Neutral language. (2-3 paragraphs) 
+
+<font size = "3"> Emotions, opinions, and their expression in language are likely among the most fundamental human characteristics. Accordingly, the expression of emotional states, or affect, is institutionalized into additional categories. The first is the expression of opinion about other people, and the second is the categorization of appreciation, or aesthetic opinion. Affect, judgment, and appreciation, when combined, capture how we express our feelings and opinions, which is the subject of sentiment analysis. The sentiment analysis of Twitter data focuses on the expression of subjectivity as either a positive or negative opinion. A closely related field is the study of emotion and emotive terms, specifically their classification (anger, surprise, fear). Sentiment analysis focuses on polarity (positive, negative, neutral) but also on feelings and emotions (angry, happy, sad, etc), urgency (urgent, not urgent) and even intentions (interested v. not interested). 
+
+- Without context, analyzing sentiment becomes difficult. Machines, on the other hand, cannot learn about contexts unless they are explicitly mentioned. Changes in polarity are one of the issues that arise as a result of context.A significant amount of processing is thus required if we are to account for at least a portion of the context in which texts were produced. 
+
+- When it comes to irony and sarcasm, people express their negative feelings with positive words, which can be difficult for machines to detect without a thorough understanding of the situation in which a feeling was expressed.
+
+- Another hurdle to overcome in order to perform accurate sentiment analysis is defining what we mean by neutral. As with any classification problem, defining categories and the neutral tag- is critical.
+
+Ambiguity arises when words or phrases can be understood in more than one way. One of the downsides of using lexicons is that people express emotions in different ways. Some words that typically express anger, like bad or kill might also express happiness. It can come from a word with more than one meaning, from different words that sound and spell alike, or from words that can be combined in different ways. Earlier, ```nrc``` lexicon was used to distinguish between positive and negative words from the tweets. Meanwhile, surprise was grouped as neutral as it is can evoke either of the sentiments. Also negative words like “not” didn't feature in the analysis, which indicates there are no negative prefixes to change the context or meaning of the word “good” i.e. it indicates most responses don’t mention negative phrases like “not good”. </font>
+
+```{r}
+# Selecting emotion words from the tweet 
+tweet_emotion <- data_frame(text = tweet_en$text) %>% 
+    unnest_tokens(word, text) %>%
+    anti_join(stop_words, by = "word") %>%
+    inner_join(get_sentiments("nrc")) %>%
+      filter(sentiment %in% c("surprise", "anticipation")) %>% 
+    count(word, sort = TRUE) %>%
+  ungroup()
+
+# Barplot of top emotion words
+tweet_emotion %>%
+  top_n(10) %>%
+  ungroup() %>%
+  mutate(word = reorder(word, n)) %>%
+  ggplot(aes(word, n, col = "lightgreen")) +
+  geom_bar (stat="identity", fill ="lightgreen", show.legend = FALSE) +
+  labs(y = "Contribution to Sentiment (Frequency)",
+       x = "Word", caption = "Lab 4 data") +
+  coord_flip() +
+    geom_text(aes(label=n), nudge_y=50, col = "Blue", show.legend = FALSE) +
+  theme_classic()
+
+# Wordcloud
+wordcloud(words = tweet_emotion$word, freq = tweet_emotion$n, min.freq = 50,
+          max.words=100, random.order=FALSE, rot.per=0.4, 
+          colors=brewer.pal(8, "Dark2"))
+
+# Contextaulizing sentiment based on sentence
+tweet_sentiment <- tweet_en %>%
+  filter(!is.na(country)) %>% 
+  get_sentences() %>%
+  sentiment_by(by = c('text', 'country')) %>%
+   as.data.frame() %>% 
+  filter(word_count > 20) 
+
+#Summary of the score
+summary(tweet_sentiment$ave_sentiment)
+
+# Plotting sentiment score for each country
+ggplot(tweet_sentiment, aes(word_count, ave_sentiment, fill = country)) +
+  geom_col(show.legend = FALSE) + 
+  labs(title = "Complexity Analysis of Tweets", y = "Average Sentiment Score",
+       x = "Word (Frequency)", caption = "Lab 4 data") +
+  facet_wrap(~country) +
+  theme_classic()
+```
+
+<font size = "3"> Previously, word counts that contribute to surprise sentiment was first filtered and analysed using ```count()``` which recorded the contribution of each word to the sentiment. Following, barplot and word cloud was generated from the contributed words. Plotting the top 10 most frequent words related to surprise sentiment using a bar chart is a good basic way to visualize the frequent data. According to the bar plot, the most frequently occurring word was “time” which was recorded to occur  1504 times, other words were money (820), hope (818), trump (737), and birthday (682) respectively. Wordcloud helped to support the above finding and visually understand the important terms frequently used in the tweets for given emotion.
+
+To get the deeper meaning of sentence-level sentiment ```sentimentr``` was used based on text. Accordingly, only tweets with country variable were filtered for the analysis and ```sentiment_by``` command was used to aggregate sentiment measure for the entire sentence. The ave_sentiment indicated the sentiment of the review in one number, either as positive or negative values that expresses the valence and the polarity of the sentiment. The sentiment score for the entire dataset ranged between 1.06 to -0.67 with mean as 0.11, which indicated that majority of the tweets tend to be moderately positive. Finally, word count above 20 was used as a filter to develop graphics with country as facet wrap. From the graph, the essence of the tweet was analyzed based on geographic location. Its obvious that United Stated had a mixed of positive as well as negative essence sentence, whereas United Kingdom has majority of positive sentiments. </font>
+
+#### Our readings this week includes an application of sentiment analysis and an discussion of the ethics of using crowd-sourced data in research. Give a critical assessment of the ethics, research design and conclusion of "The Geography of Happiness: Connecting Twitter Sentiment and Expression, Demographics, and Objective Characteristics of Place" by Mitchell and others (2-3 paragraphs)   
+ 
+<font size = "3"> The paper's overarching goal is to study the relationship between location and societal levels of happiness based on mining social network data for real-time surveying. The research investigates happiness dynamics at the state level within urban areas in the United States to quantify overall happiness and explain variability. The study is based on word frequency distributions acquired from 10 million geo-tagged corpus or 'tweets' posts based on Language Assessment by Mechanical Turk (LabMT) word list, and the relationship between happiness and other social and economic parameters using the 'word shift graph' technique. Based on the analysis, happiness in the United States was shown to be substantially correlated with wealth, with a big positive association with growing household income and a strong negative correlation with increasing poverty while anti correlated with obesity. 
+
+However, there are ethical concerns about the research design and ethics that needs to be considered. To begin, the study is based on a rough 10 percent sample taken throughout the calendar year 2011, indicating that the data set represents a non-uniform subsample of remarks made by a non-representative fraction of the community. Second, while the implications of disclosing user information differ between projects, the decision to anonymize or not for active network studies like Twitter has a clear ethical significance for security. Third, the indicators used in the study to gauge the happiness score is subjective and is be expected to vary. Finally, the analysis is focused solely on words, with no regard for context or word order. Given that human languages are sophisticated, nuanced, infinitely complicated, and entangled with sentiment, conclusions generated from such analysis may sever vital information while depreciating the syntactically complexity and inducing false conclusion. </font> 
+
+
+#### Plot (time-series) sentiment for a region or group of users. What factor would you consider when evaluating these sentiment patterns (1-2 paragraphs).
+
+<font size = "3"> For time series analysis, first the country who produce highest number of tweets for the given time frame was identified based on number of tweets count for each country. Here, all the blank data value were omitted from the analysis using ```is.na()``` function. Accordingly, the top country was filtered and a time plot was developed using ```ts_plot()``` function from the rtweet package that plot the frequency of tweets over a variety of time intervals. </font>      
+
+```{r}
+# Enlisting top tweeting countries 
+plot3 <- tweet_en %>% 
+  filter(!is.na(country)) %>% 
+  count(country, sort = TRUE) %>% 
+  mutate(country = reorder(country, n)) %>%
+  top_n(10) %>% 
+  ggplot(aes(country, n, fill = "darkblue")) +
+  geom_bar (stat="identity", show.legend = FALSE) +
+  labs(y = "Frequency of tweet",
+       x = "Country", caption = "Lab 4 data") +
+    geom_text(aes(label=n), nudge_y=10, col = "Blue", show.legend = FALSE) +
+   coord_flip() +
+  theme_classic()
+plot3
+
+# Filter top tweet producing country
+tweet_usa <- tweet_en %>%
+  filter(country == "United States")
+
+# Frequency plot against time
+plot4<- ts_plot(tweet_usa, "minutes") +
+  geom_line( colour = "blue")  +
+  labs(x = "Time interval (minutes)", y = "Frequency",
+       title = "Frequency of Tweets per Minutes",
+       subtitle = "From USA",
+       caption = "Lab 4 data") +
+  theme_classic()
+plot4
+```
+
+<font size = "3"> From plot 3, United States was recorded to produce most number of tweets followed by United Kingdom and India in second and third respectively. Based on time series per minutes, number of peaks were identified, highest number of tweet was recorded at 16:45 which accounted close to 15 tweets. There were number of valleys formed between the peaks. 
+
+There are several factor to be considered while evaluating the sentiments pattern including pre-processing, addressing ambiguity while imputing to the clarity, and selection of appropriate lexicon. Moreover,  significant amount of techniques needs to be applied to raw data in order to reduce the noise of text, reduce dimension, and assist in the improvement of classification effectiveness. Based on the research objective, the choice of tools to classify the sentiment can be made between machine learning, lexicons or hybrid approach that combines both.</font> 
