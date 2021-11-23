@@ -1,0 +1,257 @@
+---
+title: "Lab 3"
+author: "Pradip Shrestha"
+date: "11/9/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Importing required libraries
+
+```{r}
+library(readr)
+library(ggplot2)
+library(ggthemes)
+library(gganimate)
+library(foreign)
+library(dplyr)
+library(rnaturalearth)
+library(rnaturalearthdata)
+library(gifski)
+library(lubridate)
+library(tidyverse)
+library(wesanderson)
+library(ggpmisc)
+library(ggmap)
+library(animation)
+```
+
+
+```{r}
+# Setting up work environment and identifying type and dimension of the dataset
+data <- read.csv("C:/Users/mepra/Desktop/UMICH/501/Lab 3/AdvWeek3Data/MichiganFlickr.csv")
+dim(data)
+str(data)
+
+# Creating time variables, count and segregating types 
+data$date <- as.POSIXct(data$dateupload, origin="1970-01-01")
+data$date <- as.Date(format(data$date, format="%Y-%m-%d"))
+data$year <- year(data$date)
+data$month <- month(data$date)
+data$day <- day(data$date)
+data$count<- 1
+data$type<- ifelse(data$predict_Na > 0.6, "nature", "non_nature") 
+```
+
+#### What might account for the spatiotemporal difference between nature and non-nature photographs. Provide visual evidence for your argument(2-3 paragraphs)
+
+Spatio-temporal analysis is a field in data analysis when data is collected and analyzed across the dimension of space and time to describes a phenomenon in a certain location and time. Understanding seasonal human activity at local scales has important implications across sciences.Studying the spatial and temporal differences between type (source) of photographs such as nature and non-nature can aid in understanding the people behavior and attitude over time and space. The analysis helps to identify changes across time and space, at scale. It helps in assessing when and where population move over the course of the year based upon their social photo posting in Flickr. To do this, we used the aggregated Flicker dataset, containing geo-tagged photographs aggregated over users, time and location. To study the seasonality and time series trend in Flickr posting, various visualizations and statistical principles were applied. 
+
+Prior, the dataset was read into R using ```read.csv``` functions and variables such as years, month and day is developed and append. For classifying photograph type, predict_Na variable with greater than 0.6 value is assigned as nature and rest as non-nature. All the ```fid``` in the dataset are counted 1 for further analysis. The dataset contains 1203216 rows and 20 columns and contains mix of character, integers, numeric and data data types. For seasonal analysis, months were classified according to the seasons (in Michigan). 
+
+
+```{r}
+# Group the data by day
+daily <- data %>%
+  mutate(day = as.Date(date, format="%Y-%m-%d")) %>% 
+  group_by(day, month, year, type, longitude, latitude, Landuse) %>%
+  summarise(total_photos=sum(count)) %>%  
+  na.omit()
+
+# Add month name and rearrange the order 
+daily$month_name<- format(daily$day,"%B")
+daily$month_name = factor(daily$month_name, 
+                                      levels=c('January','February','March',
+                                               'April','May','June','July',
+                                               'August','September','October',
+                                               'November','December'))
+
+# Aggregate the data into four seasons
+daily <- daily %>% 
+  mutate(season = 
+           ifelse(month_name %in% c('December', 'January','February'), "Winter",
+           ifelse(month_name %in% c('March', 'April','May'), "Spring",
+           ifelse(month_name %in% c('June','July', 'August'), "Summer",
+           ifelse(month_name %in% c('September', 'October', 'November'), "Fall", "error")))))
+
+# Cross-tab total_photos by season and type
+cross<- xtabs(total_photos ~ season+type, data=daily)
+cross
+percent_cross<- round(100*prop.table(cross),digits=0)
+percent_cross
+cross_test<- chisq.test(cross)
+cross_test
+
+
+# Plotting the data
+plot1<- daily  %>%
+    filter(year > 2004)  %>% # eliminate the data prior 2004 for excluding low values 
+  ggplot(aes(x = day, y = total_photos)) +
+  geom_point(aes(color = type)) +
+    labs(title = "Flickr Photographs for Michigan", x = "Timeframe (Day)", y = "Total photographs",
+         subtitle = "Seasonal Activity per Day by Photograph Type", caption="Source: Lab_3") +
+   theme_classic() + 
+  guides(colour = guide_legend("Photograph Type")) +
+  facet_grid(.~ season) 
+plot1
+```
+
+The temporal distributions of clusters in four seasons are visualized in plot1. From cross-tab table and chi-square test, it is obvious that the photographs posted in the Flicker account were influenced by the season and those difference were statically significant (p-value < 2.2e-16). In comparison to nature type photo, non-nature photographs were found to be more for all the seasons. There was distinct variation for nature photo posting in Flickr according seasonality, such as maximum posts were recorded for Summer season whereas Winter recorded the least number of posts (percent_cross table). This result aligns with plot 1, where apart from few extreme posts of nature photos during Fall, the plot is dominated by non-nature photo.  
+
+
+```{r, fig.width = 10}
+daily_filter <- daily %>%
+  filter(year > 2000)
+
+# Plotting nature type photos beyond 2000
+plot2 <- qmplot(x=longitude,y=latitude, data = filter(daily_filter, type == "nature"),
+  maptype = "terrain-labels", legend = "none", extent = "normal", zoom = 7,  
+  darken = .4, geom = "blank", main = "Nature Photographs Posts by Season", f = 0.1, 
+  xlab = "Longitude", ylab = "Latitude") +  stat_density_2d(aes(fill = ..level..),  
+        geom = "polygon", alpha = .4, color = NA) + 
+  scico::scale_fill_scico(palette = "lajolla") +
+  guides(fill=guide_legend(title="Photo density")) +
+  facet_wrap(.~ season) 
+plot2
+```
+
+With regards to the spatial characteristics of the Flickr posts, 2D kernel density estimation was applied. Plot 2 shows spatial distribution of nature type photographs for the year beyond 2000. The resulting map shows simultaneously the intensity of taking photos at different locations and the seasonal differences. Here, signiﬁcant ‘hotspots’ (clusters) of photographs post is detected over few areas in Michigan, including Ann Arbor, Detroit, and Grand Rapid area and more pronounced for Spring season. Another soft-spot is observed along the coastline of Lake Michigan, Lansing and few southern parts.These areas however, vary in intensity of photo post by seasons where high intensity of post was recorded for Spring whereas during Summer, number of post occurred in the coast line region of Lake Michigan. The spatial temporal analysis highlights the fact that people are akin to post more nature photographs in Flickr during the Summer and its geographic distribution is more concentrated around cities in  Michigan.  
+
+
+#### Do a in-depth time series analysis (e.g. peaks and valleys or year over months/weeks). What might account for specific trends in photograph sharing? Provide visual evidence for your argument (2-3 paragraphs)
+
+Time series analysis is a statistical technique that deals with sequential data for trend and seasonality analysis during particular time periods or intervals. Time series analysis of the Flicker photograph sharing was based on annual anomaly estimation. Based on plot 3, the annual anomaly showed an increasing trend, indicated by uprising trend line. For the given time frame, the sum of annual post per year was recorded to be increasing sequentially over time, particular beyond 2006. Based on the anomaly estimate, years prior to 2007 recorded high negative value as the total sum of annual post was relatively limited. The highest positive anomaly was recorded for 2010, followed by 2011 and 2012 respectively. The value between 1980 to 2000 occurs blank due to low values to be plotted in this graph scale.        
+
+```{r}
+# Summarizing by year
+daily_annual<- daily %>% 
+  group_by(year) %>% 
+  summarize(total_clicks = sum(total_photos))
+
+# Calculating annual anomaly 
+daily_annual$amly <- round((daily_annual$total_clicks - mean(daily_annual$total_clicks))/sd(daily_annual$total_clicks), 2)
+daily_annual$type <- ifelse(daily_annual$amly < 0, "below", "above") 
+daily_annual
+
+#Plotting the anomaly 
+plot3<- daily_annual%>% 
+ggplot(aes(x = year, y = amly)) + 
+  geom_bar(stat='identity', aes(fill=type), width=0.7)  +
+  scale_fill_manual(name="Total clicks", 
+                    labels = c("Above Average", "Below Average"), 
+                    values = c("above"="#00ba38", "below"="#f8766d")) + 
+  labs(x= "Years", y = "Anamoly", subtitle="Normalised Annual clicks", 
+       caption="Source: Lab_3", title= "Diverging Bars") + theme_classic()+
+  geom_smooth(method="lm", se=F) +
+   stat_poly_eq(aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~")), 
+                parse = TRUE)
+plot3
+```
+
+Next, the association between land use type and nature related posting in the Flickr was explored. For this the total annual post was grouped by average number of posting per land use. From the analysis, Developed, Open Space (Landuse class 21) was found to be highest among other land use class whereas Deciduous Forest, Evergreen Forest, and Mixed Forest too contributed much to the total nature post in Flickr. Accordingly, the dataset was filtered based on Developed, Open Space and nature, and the output was summarized by month and day. 
+
+Identifying and analyzing peaks (or spikes) in a given time-series is important in many applications as it indicate significant events such as sudden increase in value for a given time frame. Finally, peaks and valleys was plotted for 2010 and month of August by adding ```stat_peaks``` and ```stat_valleys``` argument to the typical ggplot format. Plot 4 exhibits couple of high peaks for 25 August and 15 August indicating local maxima within August 2010 whereas 11, 16 and 28 August recorded valleys respectively. These peak and valley exhibits local variability within a given time frame (month) and does not indicate maximum and minimum value for the dataset.      
+
+
+```{r}
+# Grouping by land use type with average total photos 
+luse_avg <- daily %>%
+  filter(type =="nature") %>% 
+  group_by(Landuse) %>%
+  summarise(avg=mean(total_photos)) %>%  
+  na.omit()
+luse_avg
+
+# Filtering data by Open, developed space land use and nature type photographs  
+daily_nature_21 <- daily %>%
+    filter(Landuse == "21", type == 'nature') %>%
+  group_by(day, year, month_name) %>% 
+  summarise(total_clicks=sum(total_photos))
+
+# Peak and valley plotting
+plot4<- daily_nature_21  %>%
+  filter(year == '2010', month_name == "August")  %>%
+  ggplot(aes(x = day, y = total_clicks), as.numeric = FALSE) +
+  geom_line() + stat_peaks(colour = "red") + 
+  labs (title="Peak and Valley in Developed, Open Space Photographs", 
+       subtitle = "Nature type posts for August 2010", 
+       y="Total Photographs", x = "Month",
+       caption="Source: Lab_3") +
+  stat_peaks(geom = "text", colour = "red", angle = 360,
+             vjust = 1, hjust = 1,  x.label.fmt = "%d%B") +
+  stat_valleys(colour = "blue") +
+  stat_valleys(geom = "text", colour = "blue", angle = 315,
+               vjust = 1, hjust = 1,  x.label.fmt = "%d%B") +
+  theme_classic() 
+plot4
+```
+
+
+#### We know that social media can include different noise (e.g. high frequency related to users, dates). Develop and describe a technique for eliminating this noise. Include the code in your answer (2-3 paragraphs)
+
+Noise in data is a unwanted/misleading items or a less influencing variable that may have an impact on overall data quality. It refers to any type of data that cannot be read or used by programs to produce meaningful results. Noisy data not only increases the amount of storage space required unnecessarily, it causes the algorithms to miss out patterns, and may induce a negative impact on the results of any data mining analysis. For instance, the Michigan Flickr data has repeated posting value from a owner for a particular day. This is counted as a separate entry by the program and might influence the overall outcome. 
+
+The Flicker data had mainly two types of noise, one due to repeated counting of the post by a user and another by date of upload. To overcome the duplication in counting, ```distinct``` function was passed using ```deplyr``` package to identify and keep all the unique values, omitting the repeated variable from the original dataset.Roughly 8 percent of the original data had some noise elements related to owner and day the post was made.The advantage of using this function is that it preserves the attributes of data frame and it doesn't modify the groups.  
+
+```{r}
+dim(data) 
+clean_data<- data %>% distinct(dateupload, owner, .keep_all = TRUE)
+dim(clean_data)
+
+# Checks for repetition
+clean_grp <- clean_data %>%
+  group_by(dateupload, owner) %>%
+  summarise(total_photos=sum(count)) %>%  
+  na.omit()
+summary(clean_grp$total_photos)
+```
+
+#### Provide a gif illustrating spatiotemporal dynamics. Provide a hypothesis of these patterns based on your knowledge of these processes(e.g. understanding of the region, geographic processes). Include a GIF in you online submission(1-2 paragraphs)
+
+Space and time referenced data published on the Web by ordinary people can be viewed in two ways: as independent spatio-temporal events and as people's trajectories in geographical space. These two points of view assume different approaches to analysis, which can result in different types of valuable knowledge about places and people. Geo-spatial data such as those derived from Flickr provides valuable information to analyze human activities in space and time. These attributes can help to monitor the concentration of geographic distribution of posts, seasonality and variability within and between years. The study illustrate an seasonal tendency of the spatial patterns of photo posts. Moreover, spatial temporal clustering of geo-tagged photos to detect events or place of importance. Based on lonely planet's travel guide [Link to source article](https://www.lonelyplanet.com/articles/best-time-to-visit-michigan), an assumption is made that Summer is the best time for outdoor activity, especially for nature photography and will see rise in number of post in the season of the years.  
+
+```{r}
+# Data for Michigan
+states <- map_data("state")
+mich<- states %>% 
+  filter(region == "michigan")
+counties <- map_data("county")
+mich_county <- subset(counties, region == "michigan")
+
+# Creating layout
+mich_layout <- ggplot(data = mich, mapping = aes(x = long, y = lat, group = group)) + 
+  coord_fixed(1.3) + 
+  geom_polygon(color = "black", fill = "#ffbf00") + theme_classic()
+
+
+# Adding season column 
+clean_data <- clean_data %>% 
+  mutate(season = 
+           ifelse(month %in% c('12', '1','2'), "Winter",
+                  ifelse(month %in% c('3', '4','5'), "Spring",
+                         ifelse(month %in% c('6','7', '8'), "Summer",
+                                ifelse(month %in% c('9', '10', '11'), "Fall", "error")))))
+
+# Filtering data by date and Open, developed space land use
+animate<- clean_data %>% 
+  filter( date >= as.Date('2009-06-01') & date <= as.Date('2012-05-31') & type == "nature" )
+
+# Plotting
+p<- mich_layout + theme_void() + 
+  geom_polygon(data = mich_county, fill = NA, color = "white") +
+  geom_polygon(color = "black", fill = NA) + 
+  geom_point(data = animate, aes(longitude, latitude), inherit.aes = FALSE) +
+  labs(title = 'Date: {format(frame_time, "%b %d %Y")}')
+
+# Creating animation 
+p + transition_time(date) + facet_wrap(~season) +
+  labs(title = "Year: {frame_time}") +
+  shadow_wake(wake_length = 0.1, size = 0.2, alpha = FALSE)
+```
+
+
+
+

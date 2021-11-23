@@ -1,0 +1,209 @@
+---
+title: "Lab 2"
+author: "Pradip Shrestha"
+date: "11/6/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#### Our readings this week demonstrate two applications of 3D geovisualizations. In your opinion, what are the benefits and challenges of using 3D. Is 3D and the technology associated with it (e.g immersive environments) here to stay? (1-2 paragraphs)
+
+<font size = "3"> 3D geovisualization is a broad term that refers to the use of spatial visualization techniques to represent the real world, in whole or in part, as well as other spatially referenced data. Among its many advantages is improved communication efficacy via compelling visuals that showcase information in a much more impressive and thorough manner, improved ability to identify and classify objects with precision and accurate rendering, and support learning of spatial relationships. However, the most significant challenges associated with 3D technology are related to the cost of operation and the resolution of the product in use, particularly the spatial and temporal resolution. Depending on surface attributes, there may also be noise or information distortion due to the scattering of the return signal.
+
+Although 3D visualizations are common in scientific visualization, they have been limited when it comes to abstract information visualization. The immersive environment is an evolving process that supports situated analytics, embodied data exploration, collaboration, and a more engaging narrative, thus offering numerous advantages over traditional 2D technology. With higher resolution and lower latency, a significant improvement over their predecessors' performance, features such as depth clues, egocentric view, and enrichment showcases a gradual broadening of these interactive technologies. To summarize, 3D and aligned technology allow people to step outside of the normal bounds of reality and achieve goals in completely new and unexpected ways in education, healthcare, and commerce. This promising technology has the potential to cross over with other emerging technologies, such as machine learning and artificial intelligence to create a unified, high-tech ecosystem of intelligent products, and as such, has a future on everyone's minds. </font>
+
+
+#### I have introduced you to yet another open source software. In your opinion, what role will open source software play in the future of public and private research? How will it be maintained? (1-2 paragraphs)
+
+<font size = "3"> Academic researchers rely on a wide range of highly specialized software to power their research. Researchers have relied on commercial software options; however, it requires license purchase and can be costly at times, especially for students. As a result, developing and deploying open-source software such as GRASS or QGIS has become critical for a variety of reasons, particularly for research and development. Not only does open-source save money over commercial options, but it also allows researchers to customize the software to their specific needs. The open-source community is collaborative, technically diverse, and secure outside of the confines of an organization. It enables many users and developers from around the world to participate and learn while troubleshooting issues as they arise. For researchers, open-source provides numerous benefits, including ready-to-use cutting-edge technology, cost savings, and faster development, and will play a pivotal role in the future of public and private research endeavors.
+
+The upkeep of open-source software necessitates a substantial amount of documentation and organizational effort. The key to successfully maintaining open-source software is a few simple things: clear goals, up-to-date documentation, and open communication with users and contributors. Clear guidelines must be in place for anyone who wishes to participate. Keeping track of and reporting bugs, as well as requesting new features, should be given special consideration. Developers can use open-source repository hosting services like GitHub to keep track of such issues. To summarize, by being responsive to issues and inviting collaboration, open-source software can build a community that aids in the promotion of the software and ensures its long-term use. </font>
+
+
+#### Give 3 example that would you make your results discoverable and open to the public?
+
+<font size = "3"> Aside from developing the research hypothesis, collecting data, and summarizing the findings, it is also critical to promote one's work. This has several advantages, including improved reputation and academic success---increasing the likelihood that research will be noticed, used, and have an impact. Here are the three strategies I would use to promote my research findings.
+
+-   Conference participation: Presenting my results in conference as a poster or oral presentation is one way of making the research visible. Attending such events offers opportunities for catalyzing new collaboration and generate goodwill among researchers.
+
+-   Share publications (open access): Publishing in open access scholarly journals has advantage of conferring citations. In addition, I will make the data available for replication and reproducibility, which would allow for collaboration and validation of my results. Furthermore, it expands the opportunity for proper peer reviews to be performed as well as suggestions for how the work can be improved.
+
+-   Engage in social networking: Another great way to disseminate my research and gain reputation is through active engagement in networking communities like Twitter, ResearchGate, LinkedIn, and blogs. These services will allow me to built profiles, showcase my research, and identify communities of common interest. </font>
+
+
+#### Design and describe your own 3D geovisualization based on the provided data.
+
+<font size = "3"> Many important ecological processes are influenced by forest structure. Forest structural diversity can be defined as the physical arrangement and variability of the living and non-living biotic elements within forest stands that support many essential ecosystem functions. Quantifying forest structure or structural diversity is difficult for a variety of reasons, including the difficulty of measuring individual trees, limbs, and leaves across large areas, which demands for cost, time, and energy. To address this issue, Light Detection And Ranging (LiDAR) technology provides measurements of forest attributes such as height over an area of interest. The information on vertical nature of forest ecosystem provides an opportunity for enhanced monitoring and sustainable management of forests while helping to understand the contributions of forests to global carbon feedback.
+
+Structural diversity metrics derived from point cloud data is grouped into three different categories that described traits of the canopy in the area of interest including canopy height, heterogeneity (internal and external, and vegetation area. Within those categories, six different matrix namely mean height, mean maximum canopy height, top rugosity, rumple, vegetation area index, leaf area density, and vertical complexity index were determined. These diversity metrics are based on description provided in LaRue et.al. (2020).
+
+To begin, we load required R packages, and set our working directory to the location where we saved the input .laz files. </font> 
+
+```{r}
+## Dependencies
+library(sf)
+library(raster)
+library(rgdal)
+library(raster)
+library(tmap)
+library(tmaptools)
+library(lidR)
+library(RStoolbox)
+library(ForestTools)
+library(ggplot2)
+library(ggspatial)
+library(raster)
+library(leaflet)
+library(rayshader)
+library(gstat)
+library(viridis)
+library(ggsn)
+```
+
+<font size = "3"> After setting the work directory, the input shape file's coordinate system is transformed to ```WGS84`` system. </font>  
+
+```{r}
+# Set working directory, import and transform data
+setwd("C:/Users/mepra/Desktop/UMICH/501/Lab 2")
+lidar_data <-st_read("C:/Users/mepra/Desktop/UMICH/501/Lab 2/WashShapefiles/Washtenaw_Index.shp")
+lidar_data <- st_transform(lidar_data, 4326)
+```
+
+```{r}
+# Interactive map for selecting area of interest (aoi)
+leaflet(lidar_data) %>% 
+  addTiles() %>%  
+  addPolygons(color = "#444444", weight = 1, smoothFactor = 0.5,
+    opacity = 1.0, fillOpacity = 0.05,
+    fillColor =NA,
+    highlightOptions = highlightOptions(color = "blue", weight = 2,
+      bringToFront = TRUE),
+            popup = paste("LiDAR Index: ", lidar_data$Name))
+```
+
+<font size = "3"> For this analysis, area around Fuller Park and Island Park (ID:295287) in Ann Arbor is selected. The  LiDAR data is read using ```readLAS``` function. Following, the extent, coordinate system is checked and a 3D plot of aoi is plotted.</font>   
+
+```{r}
+aoi <- readLAS("C:/Users/mepra/Desktop/UMICH/501/Lab 2/Pointclouds_AnnArbor/295287.las")
+epsg(aoi) <- 8705
+summary(aoi)
+```
+
+<font size = "3"> Here, trim parameter is used as an threshold for the outlier to print those values higher than trim. </font> 
+
+```{r}
+plot(aoi)
+plot(aoi, color = "Intensity", trim = 1800, bg ="gray")
+```
+
+<font size = "3"> Before obtaining forest structural information from the LiDAR point clouds, some pre-processing was required to create the digital terrain model (DTM) in the study site. The ```grid_terrain()``` function is used to creates a rasterized digital terrain model. The resolution value  is selected as roughly 1 meter. The k-nearest neighbor (KNN) method of interpolation is applied which assumes that similar things exist in close proximity. For this analysis, we assume that the
+lowest returns are in-fact ground and sparsely vegetated areas. Finally, the height of all non-ground points was normalized by the DTM.  </font>  
+
+```{r}
+dtm_aoi <- grid_terrain(aoi, res = 3, knnidw(k = 6, p = 2), keep_lowest = FALSE)
+
+# Convert to dataframe  
+dtm_df <- as.data.frame(dtm_aoi, xy = TRUE)
+
+# Plotting 
+plot1<- ggplot() + 
+  geom_raster(data = dtm_df, aes(x = x, y = y, fill = Z)) +
+  scale_fill_gradientn(colours = terrain.colors(10)) +
+  annotation_scale(pad_x = unit(0.5, "cm"), pad_y = unit(0.20, "cm"), 
+                   location = "br", line_width = 1.5, plot_unit = "ft") + 
+  annotation_north_arrow(location = "bl", height = unit(1, "cm"),
+  width = unit(1, "cm"), pad_x = unit(0.2, "cm"), pad_y = unit(0.2, "cm")) +
+  labs(y="Latitude", 
+       x="Longitude", 
+       title="Digital Terrain Model (DTM)",
+       subtitle="Around Fuller Park and Island Park",
+       caption = "Source: Lab 2_data") + 
+  guides(fill=guide_legend(title="Elevation (feet)")) + theme_bw() 
+plot1
+```
+
+<font size = "3"> The height value is normalize for the LiDAR point cloud from an absolute elevation above mean sea level to height above the ground using the `lasnormalize` function. </font> 
+
+```{r}
+las_norm <- lasnormalize(aoi, dtm_aoi, na.rm = TRUE)
+plot(las_norm)
+```
+ 
+<font size = "3"> The dataset is clean of outliers including shrubs or low growth trees less than 1.5 feet. </font> 
+
+```{r}
+las_norm@data$Z[las_norm@data$Z <= 1.5] <- NA 
+```
+
+Finally, structural diversity is calculated using ```grid_canopy``` function. 
+
+```{r, fig.width=10}
+chm_aoi <- grid_canopy(las_norm, res = 3, dsmtin()) 
+
+# To visualise this data in using ggplot2, we need to convert it to a dataframe.  
+chm_df <- as.data.frame(chm_aoi, xy = TRUE)
+
+# ggplot() is used to plot this data where color scale is set to scale_fill_viridis_c which is a color-blindness friendly color scale.  
+plot2<- ggplot() +
+  geom_raster(data = chm_df , aes(x = x, y = y, fill = Z)) +
+  scale_fill_viridis_c() +  annotation_scale(pad_x = unit(0.5, "cm"),
+  pad_y = unit(0.25, "cm"), location = "br", line_width = 1.5, plot_unit = "ft") + annotation_north_arrow(location = "bl", height = unit(1, "cm"),
+  width = unit(1, "cm"), pad_x = unit(0.2, "cm"), pad_y = unit(0.2, "cm")) +
+  coord_quickmap() + labs(y="Latitude", 
+       x="Longitude", 
+       title="Forest Structural Diversity",
+       subtitle="Around Fuller Park and Island Park",
+       caption = "Source: Lab 2_data") + theme_bw() + 
+  guides(fill=guide_legend(title="Forest Height (feet)"))
+
+plot(plot2)
+```
+
+<font size = "3"> To explore further with the dataset, additional matrix of the vegetation structure are calculated. The distributional metrics includes height percentile metrics, distribution moment metrics and canopy return density metrics.  </font> 
+
+```{r}
+# Mean Outer Canopy Height (MOCH)
+mean.max.canopy.ht <- mean(chm_aoi@data@values, na.rm = TRUE) 
+
+# Max Canopy Height
+max.canopy.ht <- max(chm_aoi@data@values, na.rm=TRUE) 
+
+# Rumple calculates the ratio of outer canopy surface area to ground surface area (roughly 0.58 m^2)
+rumple <- rumple_index(chm_aoi) 
+
+# Top Rugosity is the standard deviation of pixel values in chm_aoi and is a measure of outer canopy roughness
+top.rugosity <- sd(chm_aoi@data@values, na.rm = TRUE) 
+
+# Filtering NA values from Z points handle 
+Zs <- chm_aoi@data@values
+Zs <- Zs[!is.na(Zs)]
+
+# Leaf area density (LADen) assesses leaf area in the canopy volume, here k = 0.5 is a standard extinction coefficient for foliage, dz = 3 partitions point cloud in roughly 1 m horizontal slices, z0 is set to the same height as gap fraction profile above
+LADen<-LAD(Zs, dz = 3, k=0.5, z0=3) 
+
+# Vegetation area index (VAI) is the sum of leaf area density values for all horizontal slices assessed in previous line
+VAI <- sum(LADen$lad, na.rm=TRUE) 
+
+# Vertical complexity index (VCI) is fixed normalization of entropy metric calculated above. Here set zmax comfortably above maximum canopy height by = 3 assesses the metric based on roughly 1 m horizontal slices in the canopy
+VCI <- VCI(Zs, by = 3, zmax=118) 
+```
+
+<font size = "3"> Finally, all the metrics of structural diversity is arrange into a single table.  </font> 
+
+```{r}
+## Dataframe of row, out.plot, containing plot descriptors and calculated metrics are created
+aoi_structural_diversity <- 
+   data.frame(matrix(c(mean.max.canopy.ht, max.canopy.ht, 
+                       rumple, top.rugosity, VAI, VCI),
+                     ncol = 6))
+
+colnames(aoi_structural_diversity) <- 
+   c("mean.max.canopy.ht",
+     "max.canopy.ht", "rumple", "top.rugosity", "VAI", "VCI") 
+
+aoi_structural_diversity 
+```
+<font size = "3"> This result can be used for making comparison between forest and other regions. </font>  
